@@ -153,6 +153,7 @@ const App: React.FC = () => {
   const [lastBackup, setLastBackup] = useLocalStorage<string | null>('qrate-last-backup', null);
   const [isSignedIn, setIsSignedIn] = useLocalStorage('qrate-signed-in', false);
   const [qrInventory, setQrInventory] = useLocalStorage<QrCodeInventoryItem[]>('qrate-qr-inventory', []);
+  const [isAdmin, setIsAdmin] = useLocalStorage('qrate-admin', false);
 
   const [currentView, setCurrentView] = useState<View>({ type: 'DASHBOARD' });
   const [isBusy, setIsBusy] = useState(false);
@@ -182,16 +183,28 @@ const App: React.FC = () => {
             setCurrentView({ type: 'PUBLIC', patientData: null });
         }
     } else if (hash.startsWith('#/qr-batch')) {
-        setCurrentView({ type: 'GENERATE_QR_BATCH' });
+        if (isAdmin) {
+          setCurrentView({ type: 'GENERATE_QR_BATCH' });
+        } else {
+          setCurrentView({ type: 'DASHBOARD' });
+          window.location.hash = '#/';
+          setToast({ message: t('adminAccessRequired'), type: 'error' });
+        }
     } else if (hash.startsWith('#/assign')) {
-        setCurrentView({ type: 'ASSIGN_QR' });
+        if (isAdmin) {
+          setCurrentView({ type: 'ASSIGN_QR' });
+        } else {
+          setCurrentView({ type: 'DASHBOARD' });
+          window.location.hash = '#/';
+          setToast({ message: t('adminAccessRequired'), type: 'error' });
+        }
     } else if (hash.startsWith('#/profile/')) {
         const patientId = hash.substring('#/profile/'.length);
         setCurrentView({ type: 'PROFILE', patientId });
     } else {
       setCurrentView({ type: 'DASHBOARD' });
     }
-  }, []);
+  }, [isAdmin, t]);
 
   useEffect(() => {
     window.addEventListener('hashchange', handleHashChange);
@@ -242,6 +255,22 @@ const App: React.FC = () => {
 
   const handleOpenGenerateBatch = () => {
     window.location.hash = '#/qr-batch';
+  };
+
+  const handleAdminLogin = () => {
+    const pin = window.prompt(t('adminEnterPinPrompt'));
+    if (!pin) return;
+    if (pin === '2468') {
+      setIsAdmin(true);
+      setToast({ message: t('adminModeEnabled'), type: 'success' });
+    } else {
+      setToast({ message: t('adminInvalidPin'), type: 'error' });
+    }
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdmin(false);
+    setToast({ message: t('adminModeDisabled'), type: 'success' });
   };
   
   const handleAddPatient = (patientData: Omit<Patient, 'id' | 'medicalCategories' | 'qrCodeData'>) => {
@@ -444,6 +473,9 @@ const App: React.FC = () => {
                         onAddPatient={handleAddPatient}
                         onOpenAssignPrePrintedQR={handleOpenAssignQr}
                         onOpenGenerateQrBatch={handleOpenGenerateBatch}
+                        isAdmin={!!isAdmin}
+                        onAdminLogin={handleAdminLogin}
+                        onAdminLogout={handleAdminLogout}
                         isSignedIn={isSignedIn}
                         isBusy={isBusy}
                         lastBackup={lastBackup}

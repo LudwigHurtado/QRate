@@ -331,8 +331,6 @@ const GenerateQrBatch: React.FC<GenerateQrBatchProps> = ({ qrInventory, onBack, 
                 <BatchQrCanvas value={record.qrValue || record.token} size={120} />
                 <div className="mt-2 text-[10px] text-center text-slate-800">
                   <div className="font-semibold">{record.token}</div>
-                  <div>Batch: {record.batchName}</div>
-                  <div>Status: {record.status}</div>
                 </div>
               </div>
             ))}

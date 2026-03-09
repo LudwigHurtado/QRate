@@ -24,6 +24,9 @@ const translations = {
     getStarted: "Get started by adding your own family member, or load a demo set.",
     addNewMember: "Add New Member",
     loadDemoData: "Load Demo Data",
+    adminLogin: "Admin login",
+    adminLogout: "Exit admin",
+    adminModeLabel: "Admin mode",
     // AddPatientModal
     addNewFamilyMember: "Add New Family Member",
     fullName: "Full Name",
@@ -147,6 +150,11 @@ const translations = {
     generateBatchValidationErrorDuplicate: "A QR token from this batch already exists: {token}",
     generateBatchNoRecordsForPdf: "Generate a batch before exporting to PDF.",
     generateBatchPdfError: "An error occurred while generating the batch PDF.",
+    adminEnterPinPrompt: "Enter admin PIN to unlock the batch generator:",
+    adminInvalidPin: "Invalid admin PIN.",
+    adminModeEnabled: "Admin mode enabled.",
+    adminModeDisabled: "Admin mode disabled.",
+    adminAccessRequired: "Admin access required to generate QR batches.",
   },
   es: {
     // Header
@@ -169,6 +177,9 @@ const translations = {
     getStarted: "Comienza añadiendo un miembro de tu familia, o carga datos de demostración.",
     addNewMember: "Añadir Nuevo Miembro",
     loadDemoData: "Cargar Datos de Muestra",
+    adminLogin: "Acceso de administrador",
+    adminLogout: "Salir de administrador",
+    adminModeLabel: "Modo administrador",
     // AddPatientModal
     addNewFamilyMember: "Añadir Nuevo Miembro",
     fullName: "Nombre Completo",
@@ -292,6 +303,11 @@ const translations = {
     generateBatchValidationErrorDuplicate: "Ya existe un token de QR de este lote: {token}",
     generateBatchNoRecordsForPdf: "Genera un lote antes de exportar a PDF.",
     generateBatchPdfError: "Ocurrió un error al generar el PDF del lote.",
+    adminEnterPinPrompt: "Introduce el PIN de administrador para desbloquear el generador de lotes:",
+    adminInvalidPin: "PIN de administrador inválido.",
+    adminModeEnabled: "Modo administrador activado.",
+    adminModeDisabled: "Modo administrador desactivado.",
+    adminAccessRequired: "Se requiere acceso de administrador para generar lotes de QR.",
   }
 };
 
