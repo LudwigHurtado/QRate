@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Patient, QrCodeInventoryItem } from '../types';
 import { ChevronLeftIcon, QrCodeIcon, UploadIcon, UserIcon } from './icons/Icons';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -34,6 +34,96 @@ const AssignPrePrintedQR: React.FC<AssignPrePrintedQRProps> = ({
   const [newDob, setNewDob] = useState('');
   const [newBloodType, setNewBloodType] = useState('A+');
   const [newImage, setNewImage] = useState<string | null>(null);
+
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const scanIntervalRef = useRef<number | null>(null);
+
+  const canUseCameraScan =
+    typeof window !== 'undefined' &&
+    typeof navigator !== 'undefined' &&
+    'mediaDevices' in navigator &&
+    // BarcodeDetector is not available in all browsers
+    // we check for presence and gracefully fall back to manual entry.
+    'BarcodeDetector' in window;
+
+  const stopScan = () => {
+    setIsScanning(false);
+    setScanError(null);
+    if (scanIntervalRef.current !== null) {
+      window.clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+    const video = videoRef.current;
+    if (video && video.srcObject instanceof MediaStream) {
+      video.srcObject.getTracks().forEach(track => track.stop());
+      video.srcObject = null;
+    }
+  };
+
+  const startScan = async () => {
+    if (!canUseCameraScan) {
+      setScanError(t('cameraNotSupported'));
+      return;
+    }
+    try {
+      setScanError(null);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+      });
+      const video = videoRef.current;
+      if (!video) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+      video.srcObject = stream;
+      await video.play();
+
+      const BarcodeDetectorCtor = (window as any).BarcodeDetector;
+      const detector = new BarcodeDetectorCtor({ formats: ['qr_code'] });
+
+      const captureFrame = async () => {
+        if (!videoRef.current || videoRef.current.readyState !== HTMLVideoElement.HAVE_ENOUGH_DATA) {
+          return;
+        }
+        const width = videoRef.current.videoWidth || 640;
+        const height = videoRef.current.videoHeight || 480;
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(videoRef.current, 0, 0, width, height);
+        try {
+          const barcodes = await detector.detect(canvas);
+          if (barcodes && barcodes.length > 0) {
+            const value = (barcodes[0] as any).rawValue || '';
+            if (value) {
+              setToken(value.trim());
+              stopScan();
+            }
+          }
+        } catch (err) {
+          console.error('QR detect error', err);
+        }
+      };
+
+      setIsScanning(true);
+      scanIntervalRef.current = window.setInterval(captureFrame, 700);
+    } catch (err) {
+      console.error('Could not start camera', err);
+      setScanError(t('cameraPermissionDenied'));
+      stopScan();
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopScan();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,12 +230,17 @@ const AssignPrePrintedQR: React.FC<AssignPrePrintedQRProps> = ({
                     <div className="flex flex-col sm:flex-row gap-2 pt-2">
                       <button
                         type="button"
-                        disabled
-                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-slate-200 bg-slate-50 text-xs font-medium text-slate-400 cursor-not-allowed"
-                        title={t('comingSoon')}
+                        onClick={isScanning ? stopScan : startScan}
+                        disabled={!canUseCameraScan}
+                        className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md border text-xs font-medium ${
+                          canUseCameraScan
+                            ? 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                            : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                        }`}
+                        title={canUseCameraScan ? undefined : t('cameraNotSupported')}
                       >
                         <QrCodeIcon className="h-4 w-4" />
-                        {t('assignQrScanWithCamera')}
+                        {isScanning ? t('stopCameraScan') : t('assignQrScanWithCamera')}
                       </button>
                       <button
                         type="button"
@@ -157,6 +252,24 @@ const AssignPrePrintedQR: React.FC<AssignPrePrintedQRProps> = ({
                         {t('assignQrUploadImage')}
                       </button>
                     </div>
+                    {isScanning && (
+                      <div className="mt-4 rounded-lg border border-slate-300 bg-black/90 p-2 flex flex-col items-center">
+                        <video
+                          ref={videoRef}
+                          className="w-full max-w-xs rounded-md border border-slate-700"
+                          playsInline
+                          muted
+                        />
+                        <p className="mt-2 text-[11px] text-slate-200 text-center">
+                          {t('cameraScanHint')}
+                        </p>
+                      </div>
+                    )}
+                    {scanError && (
+                      <p className="mt-2 text-xs text-red-600">
+                        {scanError}
+                      </p>
+                    )}
                   </div>
                 </div>
 

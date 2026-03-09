@@ -11,7 +11,8 @@ import Toast from './components/Toast';
 import PrintableView from './components/PrintableView';
 import { useLanguage } from './contexts/LanguageContext';
 import AssignPrePrintedQR from './components/AssignPrePrintedQR';
-import GenerateQrBatch from './components/GenerateQrBatch';
+import GenerateQrBatch from './components/GenerateQrBatch.tsx';
+import { notifyAssignmentToServer, notifyBatchCreatedToServer } from './services/remoteInventoryApi';
 
 const DEFAULT_CATEGORIES: Omit<MedicalCategory, 'cloudLink'>[] = [
     { id: 'cat_gen', name: 'category_general_practice' },
@@ -365,6 +366,12 @@ const App: React.FC = () => {
 
     setAccount({ ...account, patients: updatedPatients });
     setQrInventory(updatedInventory);
+    notifyAssignmentToServer({
+      token: trimmedToken,
+      memberId: patientId,
+      assignedBy: assignedBy ?? null,
+      assignedAt: nowIso,
+    });
     setToast({ message: t('assignQrSuccessExisting'), type: 'success' });
   };
 
@@ -427,12 +434,20 @@ const App: React.FC = () => {
     });
 
     setQrInventory(updatedInventory);
+    notifyAssignmentToServer({
+      token: trimmedToken,
+      memberId: newPatient.id,
+      assignedBy: assignedBy ?? null,
+      assignedAt: nowIso,
+    });
     setToast({ message: t('assignQrSuccessNew'), type: 'success' });
   };
 
   const handleAddBatchRecords = (records: QrCodeInventoryItem[]) => {
     if (!records.length) return;
-    setQrInventory([...qrInventory, ...records]);
+    const next = [...qrInventory, ...records];
+    setQrInventory(next);
+    notifyBatchCreatedToServer({ records });
   };
 
   // --- Manual Restore Logic ---

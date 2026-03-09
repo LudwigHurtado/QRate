@@ -217,6 +217,8 @@ const PatientProfile: React.FC<PatientProfileProps> = ({ patient, publicUrl, onB
   const handleQrCodeFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) handleQrCodeUpload(file);
+    // Allow selecting the same file again in the future by clearing the input value.
+    e.target.value = '';
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
