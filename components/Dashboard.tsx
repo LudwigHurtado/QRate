@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Patient } from '../types';
 import PatientCard from './PatientCard';
-import { PlusIcon, UserIcon, GoogleLoginIcon, CloudDownloadIcon, LogoutIcon, CheckIcon, XIcon, AppleIcon, MailIcon, GoogleDriveIcon, SparklesIcon } from './icons/Icons';
+import { PlusIcon, UserIcon, GoogleLoginIcon, CloudDownloadIcon, LogoutIcon, CheckIcon, XIcon, AppleIcon, MailIcon, GoogleDriveIcon, SparklesIcon, QrCodeIcon } from './icons/Icons';
 import AddPatientModal from './AddPatientModal';
 import EmailSignInModal from './EmailSignInModal';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -11,6 +11,7 @@ interface DashboardProps {
   patients: Patient[];
   onSelectPatient: (patientId: string) => void;
   onAddPatient: (patient: Omit<Patient, 'id' | 'medicalCategories' | 'qrCodeData'>) => void;
+  onOpenAssignPrePrintedQR: () => void;
   isSignedIn: boolean;
   isBusy: boolean;
   lastBackup: string | null;
@@ -131,7 +132,7 @@ const DriveManager: React.FC<Pick<DashboardProps, 'isBusy' | 'lastBackup' | 'bac
 const Dashboard: React.FC<DashboardProps> = (props) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  const { patients, onSelectPatient, onAddPatient, isSignedIn, onLoadDemoData } = props;
+  const { patients, onSelectPatient, onAddPatient, isSignedIn, onLoadDemoData, onOpenAssignPrePrintedQR } = props;
   const { t } = useLanguage();
 
   const handleEmailSignIn = (email: string) => {
@@ -144,17 +145,29 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
     <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div className="px-4 py-6 sm:px-0">
         
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <h2 className="text-3xl font-bold text-slate-800">{t('familyMembers')}</h2>
-            <div className="flex items-center gap-3">
-                <AuthControls {...props} onEmailClick={() => setIsEmailModalOpen(true)} />
-                 <div className="h-8 w-px bg-slate-200"></div>
+        <div className="flex flex-col gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h2 className="text-3xl font-bold text-slate-800">{t('familyMembers')}</h2>
+                <div className="flex items-center gap-3">
+                    <AuthControls {...props} onEmailClick={() => setIsEmailModalOpen(true)} />
+                     <div className="h-8 w-px bg-slate-200"></div>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 h-10"
+                    >
+                        <PlusIcon className="h-5 w-5 mr-2" />
+                        {t('addMember')}
+                    </button>
+                </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
                 <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 h-10"
+                    type="button"
+                    onClick={onOpenAssignPrePrintedQR}
+                    className="inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
-                    <PlusIcon className="h-5 w-5 mr-2" />
-                    {t('addMember')}
+                    <QrCodeIcon className="h-5 w-5 mr-2" />
+                    {t('assignPrePrintedQrButton')}
                 </button>
             </div>
         </div>

@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { FamilyAccount, Patient, MedicalCategory } from './types';
+import { FamilyAccount, Patient, MedicalCategory, QrCodeInventoryItem } from './types';
 import useLocalStorage from './hooks/useLocalStorage';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -10,6 +10,7 @@ import PublicRecordView from './components/PublicRecordView';
 import Toast from './components/Toast';
 import PrintableView from './components/PrintableView';
 import { useLanguage } from './contexts/LanguageContext';
+import AssignPrePrintedQR from './components/AssignPrePrintedQR';
 
 const DEFAULT_CATEGORIES: Omit<MedicalCategory, 'cloudLink'>[] = [
     { id: 'cat_gen', name: 'category_general_practice' },
@@ -136,7 +137,11 @@ const EMPTY_ACCOUNT: FamilyAccount = {
   patients: [],
 };
 
-type View = { type: 'DASHBOARD' } | { type: 'PROFILE', patientId: string } | { type: 'PUBLIC', patientData: Patient | null };
+type View =
+  | { type: 'DASHBOARD' }
+  | { type: 'PROFILE'; patientId: string }
+  | { type: 'PUBLIC'; patientData: Patient | null }
+  | { type: 'ASSIGN_QR' };
 type ToastState = { message: string, type: 'success' | 'error' } | null;
 type BackupStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -145,6 +150,7 @@ const App: React.FC = () => {
   const [backupAccount, setBackupAccount] = useLocalStorage<FamilyAccount | null>('qrate-account-backup', null);
   const [lastBackup, setLastBackup] = useLocalStorage<string | null>('qrate-last-backup', null);
   const [isSignedIn, setIsSignedIn] = useLocalStorage('qrate-signed-in', false);
+  const [qrInventory, setQrInventory] = useLocalStorage<QrCodeInventoryItem[]>('qrate-qr-inventory', []);
 
   const [currentView, setCurrentView] = useState<View>({ type: 'DASHBOARD' });
   const [isBusy, setIsBusy] = useState(false);
@@ -173,6 +179,8 @@ const App: React.FC = () => {
             console.error("Failed to parse patient data from URL:", e);
             setCurrentView({ type: 'PUBLIC', patientData: null });
         }
+    } else if (hash.startsWith('#/assign')) {
+        setCurrentView({ type: 'ASSIGN_QR' });
     } else if (hash.startsWith('#/profile/')) {
         const patientId = hash.substring('#/profile/'.length);
         setCurrentView({ type: 'PROFILE', patientId });
@@ -224,6 +232,10 @@ const App: React.FC = () => {
     window.location.hash = '#/';
   };
   
+  const handleOpenAssignQr = () => {
+    window.location.hash = '#/assign';
+  };
+  
   const handleAddPatient = (patientData: Omit<Patient, 'id' | 'medicalCategories' | 'qrCodeData'>) => {
     const medicalCategories = DEFAULT_CATEGORIES.map(cat => ({ ...cat, cloudLink: '' }));
     const newPatientData = {
@@ -269,6 +281,130 @@ const App: React.FC = () => {
     setToast({ message: message, type: 'success' });
   };
 
+  const assignTokenToPatient = (patientId: string, token: string, assignedBy?: string) => {
+    const trimmedToken = token.trim();
+    if (!trimmedToken) {
+        return;
+    }
+
+    // Enforce "one active QR per member" rule by inactivating any existing token on this patient.
+    const patient = account.patients.find(p => p.id === patientId);
+    const updatedPatients = account.patients.map(p => {
+        if (p.id !== patientId) return p;
+        const updated: Patient = { ...p, qrToken: trimmedToken };
+        return updated;
+    });
+
+    const nowIso = new Date().toISOString();
+
+    const updatedInventory = qrInventory.map(item => {
+        // If this QR was previously assigned to some member and it's being reused for another,
+        // mark the old record as replaced.
+        if (item.token === trimmedToken && item.memberId && item.memberId !== patientId && item.status === 'assigned') {
+            return { ...item, status: 'replaced', notes: item.notes || 'Reassigned to another member' };
+        }
+
+        // If this QR was assigned to this same member, just keep it as-is.
+        if (item.token === trimmedToken && item.memberId === patientId && item.status === 'assigned') {
+            return item;
+        }
+
+        // If this patient previously had another active token, inactivate that QR record.
+        if (patient?.qrToken && item.token === patient.qrToken && item.status === 'assigned' && item.memberId === patientId && patient.qrToken !== trimmedToken) {
+            return { ...item, status: 'inactive', notes: item.notes || 'Replaced by a new QR token' };
+        }
+
+        return item;
+    });
+
+    const hasExistingForToken = updatedInventory.some(item => item.token === trimmedToken);
+
+    const finalInventory = hasExistingForToken
+        ? updatedInventory.map(item => {
+            if (item.token !== trimmedToken) return item;
+            return {
+                ...item,
+                status: 'assigned',
+                memberId: patientId,
+                assignedAt: nowIso,
+                assignedBy: assignedBy || item.assignedBy,
+            };
+        })
+        : [
+            ...updatedInventory,
+            {
+                id: `qr_${Date.now()}`,
+                token: trimmedToken,
+                status: 'assigned',
+                memberId: patientId,
+                createdAt: nowIso,
+                assignedAt: nowIso,
+                assignedBy: assignedBy,
+            } as QrCodeInventoryItem,
+        ];
+
+    setAccount({ ...account, patients: updatedPatients });
+    setQrInventory(finalInventory);
+    setToast({ message: 'QR assigned successfully.', type: 'success' });
+  };
+
+  const handleAssignPrePrintedQrToExisting = (patientId: string, token: string, assignedBy?: string) => {
+    assignTokenToPatient(patientId, token, assignedBy);
+  };
+
+  const handleAssignPrePrintedQrToNew = (patientData: Omit<Patient, 'id' | 'medicalCategories' | 'qrCodeData'>, token: string, assignedBy?: string) => {
+    const medicalCategories = DEFAULT_CATEGORIES.map(cat => ({ ...cat, cloudLink: '' }));
+    const basePatient = {
+      ...patientData,
+      medicalCategories,
+      cloudLink: '',
+      allergies: [],
+      currentMedications: [],
+      lastVisitDate: '',
+    };
+    const newPatient: Patient = {
+        ...patientData,
+        id: `pat_${Date.now()}`,
+        medicalCategories: basePatient.medicalCategories,
+        allergies: basePatient.allergies,
+        currentMedications: basePatient.currentMedications,
+        lastVisitDate: basePatient.lastVisitDate,
+        qrCodeData: generatePublicDataJson(basePatient),
+        qrToken: token.trim(),
+    };
+    const updatedAccount = { ...account, patients: [...account.patients, newPatient] };
+    setAccount(updatedAccount);
+
+    const nowIso = new Date().toISOString();
+    const hasExistingForToken = qrInventory.some(item => item.token === token.trim());
+    const updatedInventory = hasExistingForToken
+        ? qrInventory.map(item => {
+            if (item.token !== token.trim()) return item;
+            return {
+                ...item,
+                status: 'assigned',
+                memberId: newPatient.id,
+                assignedAt: nowIso,
+                assignedBy: assignedBy || item.assignedBy,
+            };
+        })
+        : [
+            ...qrInventory,
+            {
+                id: `qr_${Date.now()}`,
+                token: token.trim(),
+                status: 'assigned',
+                memberId: newPatient.id,
+                createdAt: nowIso,
+                assignedAt: nowIso,
+                assignedBy: assignedBy,
+            } as QrCodeInventoryItem,
+        ];
+
+    setQrInventory(updatedInventory);
+    setToast({ message: 'QR assigned and new member created.', type: 'success' });
+  };
+
   // --- Manual Restore Logic ---
   const handleRestore = () => {
     if (!backupAccount) {
@@ -305,6 +441,7 @@ const App: React.FC = () => {
                         patients={account.patients} 
                         onSelectPatient={handleSelectPatient} 
                         onAddPatient={handleAddPatient}
+                        onOpenAssignPrePrintedQR={handleOpenAssignQr}
                         isSignedIn={isSignedIn}
                         isBusy={isBusy}
                         lastBackup={lastBackup}
@@ -346,6 +483,21 @@ const App: React.FC = () => {
         );
       case 'PUBLIC':
         return <PublicRecordView patient={currentView.patientData} />;
+      case 'ASSIGN_QR':
+        return (
+          <div className="print:hidden">
+            <Header />
+            <main>
+              <AssignPrePrintedQR
+                patients={account.patients}
+                qrInventory={qrInventory}
+                onBack={handleBackToDashboard}
+                onAssignToExisting={handleAssignPrePrintedQrToExisting}
+                onCreateAndAssign={handleAssignPrePrintedQrToNew}
+              />
+            </main>
+          </div>
+        );
       default:
         return <div>Not Found</div>;
     }
