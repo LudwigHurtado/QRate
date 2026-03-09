@@ -55,6 +55,21 @@ export interface QrCodeInventoryItem {
    * Example: "QR-8F2A19XK" or any opaque string.
    */
   token: string;
+  /**
+   * Human-friendly batch name used when this code was generated
+   * (for example: "MAR26A").
+   */
+  batchName?: string;
+  /**
+   * Numeric serial number within a batch (e.g. 1, 2, 3...).
+   */
+  serialNumber?: number;
+  /**
+   * The exact value encoded in the QR image. For now this will
+   * usually be the same as `token`, but later can be a full URL
+   * like https://yourdomain.com/claim/{token}.
+   */
+  qrValue?: string;
   status: QrStatus;
   /**
    * The patient id this QR is currently assigned to (if any).

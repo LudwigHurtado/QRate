@@ -12,6 +12,7 @@ interface DashboardProps {
   onSelectPatient: (patientId: string) => void;
   onAddPatient: (patient: Omit<Patient, 'id' | 'medicalCategories' | 'qrCodeData'>) => void;
   onOpenAssignPrePrintedQR: () => void;
+  onOpenGenerateQrBatch: () => void;
   isSignedIn: boolean;
   isBusy: boolean;
   lastBackup: string | null;
@@ -132,7 +133,7 @@ const DriveManager: React.FC<Pick<DashboardProps, 'isBusy' | 'lastBackup' | 'bac
 const Dashboard: React.FC<DashboardProps> = (props) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  const { patients, onSelectPatient, onAddPatient, isSignedIn, onLoadDemoData, onOpenAssignPrePrintedQR } = props;
+  const { patients, onSelectPatient, onAddPatient, isSignedIn, onLoadDemoData, onOpenAssignPrePrintedQR, onOpenGenerateQrBatch } = props;
   const { t } = useLanguage();
 
   const handleEmailSignIn = (email: string) => {
@@ -168,6 +169,14 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                 >
                     <QrCodeIcon className="h-5 w-5 mr-2" />
                     {t('assignPrePrintedQrButton')}
+                </button>
+                <button
+                    type="button"
+                    onClick={onOpenGenerateQrBatch}
+                    className="inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                    <QrCodeIcon className="h-5 w-5 mr-2" />
+                    {t('generateBatchTitle')}
                 </button>
             </div>
         </div>
