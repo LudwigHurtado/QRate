@@ -1,0 +1,5 @@
+{
+  "name": "QRate",
+  "description": "A web application to digitize and store medical records for patients in low-tech environments. It allows family accounts to manage multiple members, each with a unique QR code that links to their secure, online medical history, making it easily accessible to healthcare providers.",
+  "requestFramePermissions": []
+}
